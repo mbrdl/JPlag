@@ -1,8 +1,9 @@
 package de.jplag.cpp2;
 
+import org.antlr.v4.runtime.ParserRuleContext;
+
 import de.jplag.cpp2.grammar.CPP14Parser;
 import de.jplag.cpp2.grammar.CPP14ParserBaseListener;
-import org.antlr.v4.runtime.ParserRuleContext;
 
 public class CPPTokenListener extends CPP14ParserBaseListener {
 
@@ -46,6 +47,7 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
     public void enterEnumSpecifier(CPP14Parser.EnumSpecifierContext ctx) {
         parser.addEnter(CPPTokenType.C_ENUM_BEGIN, ctx.getStart());
     }
+
     @Override
     public void exitEnumSpecifier(CPP14Parser.EnumSpecifierContext ctx) {
         parser.addExit(CPPTokenType.C_ENUM_END, ctx.getStop());
@@ -55,6 +57,7 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
     public void enterFunctionDefinition(CPP14Parser.FunctionDefinitionContext ctx) {
         parser.addEnter(CPPTokenType.C_FUNCTION_BEGIN, ctx.getStart());
     }
+
     @Override
     public void exitFunctionDefinition(CPP14Parser.FunctionDefinitionContext ctx) {
         parser.addExit(CPPTokenType.C_FUNCTION_END, ctx.getStop());

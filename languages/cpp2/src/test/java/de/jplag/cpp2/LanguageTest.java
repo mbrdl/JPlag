@@ -1,13 +1,6 @@
 package de.jplag.cpp2;
 
-import de.jplag.ParsingException;
-import de.jplag.Token;
-import de.jplag.TokenPrinter;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.opentest4j.TestAbortedException;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,7 +9,15 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.opentest4j.TestAbortedException;
+
+import de.jplag.ParsingException;
+import de.jplag.Token;
+import de.jplag.TokenPrinter;
 
 class LanguageTest {
 
@@ -52,23 +53,23 @@ class LanguageTest {
                         this->myMethod("Oh no");
                       }
                     }
-                    
+
                     void a(string v) {
                       this->myMethod(v);
                     }
-                    
+
                     void b(string v) {
                       MyClass::myMethod(v);
                     }
-                    
+
                     void c(string v) {
                       myMethod(v);
                     }
-                    
+
                     void d(MyClass m, string v) {
                       m.myMethod(v);
                     }
-                    
+
                     void exceptional() {
                       try {
                         int age = 15;
@@ -98,23 +99,8 @@ class LanguageTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "i = 10",
-            "i += 10",
-            "i -= 10",
-            "i += 10",
-            "i /= 10",
-            "i %= 10",
-            "i >>= 10",
-            "i <<= 10",
-            "i &= 10",
-            "i ^= 10",
-            "i |= 10",
-            "i++",
-            "i--",
-            "++i",
-            "--i",
-    })
+    @ValueSource(strings = {"i = 10", "i += 10", "i -= 10", "i += 10", "i /= 10", "i %= 10", "i >>= 10", "i <<= 10", "i &= 10", "i ^= 10", "i |= 10",
+            "i++", "i--", "++i", "--i",})
     void testAssign(String expr, @TempDir Path path) {
         String function = """
                 void f(int i) {
@@ -122,8 +108,7 @@ class LanguageTest {
                 }
                 """.formatted(expr);
         List<Token> all = extractFromString(path, function).tokens();
-        List<Token> assignTokens = all.stream()
-                .filter(token -> token.getType() == CPPTokenType.C_ASSIGN).toList();
+        List<Token> assignTokens = all.stream().filter(token -> token.getType() == CPPTokenType.C_ASSIGN).toList();
         assertEquals(1, assignTokens.size());
     }
 
@@ -147,12 +132,12 @@ class LanguageTest {
                     do {
                         goto a;
                     } while (true);
-                    
+
                     a:
                     while (true) {
                         break;
                     }
-                    
+
                     for (;;) {
                         continue;
                     }
@@ -161,6 +146,7 @@ class LanguageTest {
                 """);
         System.out.println(TokenPrinter.printTokens(result.tokens(), result.file()));
     }
+
     @Test
     void testIfElse(@TempDir Path path) {
         TokenResult result = extractFromString(path, """
@@ -196,5 +182,7 @@ class LanguageTest {
         }
         return new TokenResult(tokens, filePath.toFile());
     }
-    record TokenResult(List<Token> tokens, File file) {}
+
+    record TokenResult(List<Token> tokens, File file) {
+    }
 }

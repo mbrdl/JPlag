@@ -1,10 +1,6 @@
 package de.jplag.java;
 
-import de.jplag.ParsingException;
-import de.jplag.Token;
-import de.jplag.TokenPrinter;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,7 +8,13 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import de.jplag.ParsingException;
+import de.jplag.Token;
+import de.jplag.TokenPrinter;
+
 class LanguageTest {
 
     @Test
@@ -34,7 +36,7 @@ class LanguageTest {
                         default:
                           i = 8;
                       }
-                      
+
                       if (i * 10 > 80) {
                         System.out.println("Hello World!");
                       } else {
@@ -58,5 +60,5 @@ class LanguageTest {
         List<Token> tokens = language.parse(Set.of(resolve.toFile()));
         System.out.println(TokenPrinter.printTokens(tokens, resolve.toFile()));
     }
-  
+
 }
