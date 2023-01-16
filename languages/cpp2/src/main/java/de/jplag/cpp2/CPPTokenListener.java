@@ -31,6 +31,23 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
     }
 
     @Override
+    public void enterUnqualifiedId(CPP14Parser.UnqualifiedIdContext ctx) {
+        // assumption: all local variable references are unqualified
+        // may or may not be correct but good enough heuristic anyways
+        var parentCtx = ctx.getParent().getParent();
+        if (!parentCtx.getParent().getParent().getText().contains("(")) {
+            boolean register = true;
+            boolean afterDot = parentCtx.getClass() == CPP14Parser.PostfixExpressionContext.class;
+            if (afterDot) {
+                // bad approximation but I don't care at this point
+                register = ((CPP14Parser.PostfixExpressionContext) parentCtx).postfixExpression().getText().equals("this");
+            }
+            if (register)
+                System.out.println("register variable use " + ctx.getText());
+        }
+    }
+
+    @Override
     public void enterClassSpecifier(CPP14Parser.ClassSpecifierContext ctx) {
         for (CPP14Parser.MemberdeclarationContext member : ctx.memberSpecification().memberdeclaration()) {
             if (member.memberDeclaratorList() != null) {
