@@ -181,11 +181,11 @@ class LanguageTest {
                 #include <iostream>
                 #include <vector>
                 using namespace std;
-                                
+
                 class Hello {
-                                
+
                     int test;
-                                
+
                     public:
                     void say() {
                         vector<string> hellos {"World"};
@@ -197,7 +197,7 @@ class LanguageTest {
                         test = 3;
                     }
                 };
-                                
+
                 int main() {
                     Hello hello;
                     hello.say();

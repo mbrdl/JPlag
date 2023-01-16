@@ -1,12 +1,12 @@
 package de.jplag.cpp2;
 
-import de.jplag.semantics.VariableHelper;
+import java.util.Set;
+
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import de.jplag.cpp2.grammar.CPP14Parser;
 import de.jplag.cpp2.grammar.CPP14ParserBaseListener;
-
-import java.util.Set;
+import de.jplag.semantics.VariableHelper;
 
 public class CPPTokenListener extends CPP14ParserBaseListener {
 
@@ -36,14 +36,13 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
         // may or may not be correct but good enough heuristic anyways
         var parentCtx = ctx.getParent().getParent();
         if (!parentCtx.getParent().getParent().getText().contains("(")) {
-            boolean register = true;
-            boolean afterDot = parentCtx.getClass() == CPP14Parser.PostfixExpressionContext.class;
-            if (afterDot) {
-                // bad approximation but I don't care at this point
-                register = ((CPP14Parser.PostfixExpressionContext) parentCtx).postfixExpression().getText().equals("this");
-            }
-            if (register)
+            // bad approximation but I don't care at this point
+            if (parentCtx.getClass() == CPP14Parser.PostfixExpressionContext.class // after dot
+                    && ((CPP14Parser.PostfixExpressionContext) parentCtx).postfixExpression().getText().equals("this")) {
+                System.out.println("register member variable use " + ctx.getText());
+            } else {
                 System.out.println("register variable use " + ctx.getText());
+            }
         }
     }
 
@@ -52,7 +51,8 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
         for (CPP14Parser.MemberdeclarationContext member : ctx.memberSpecification().memberdeclaration()) {
             if (member.memberDeclaratorList() != null) {
                 // I don't even know man
-                CPP14Parser.SimpleTypeSpecifierContext ugh = member.declSpecifierSeq().declSpecifier().get(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier();
+                CPP14Parser.SimpleTypeSpecifierContext ugh = member.declSpecifierSeq().declSpecifier().get(0).typeSpecifier().trailingTypeSpecifier()
+                        .simpleTypeSpecifier();
                 boolean typeMutable = ugh.theTypeName() != null;
                 for (var decl : member.memberDeclaratorList().memberDeclarator()) {
                     // decl.declarator().noPointerDeclarator() may alternatively be used, todo
@@ -242,16 +242,30 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
     }
 
     @Override
+    public void enterParameterDeclaration(CPP14Parser.ParameterDeclarationContext ctx) {
+        CPP14Parser.DeclSpecifierContext declSpecifier = ctx.declSpecifierSeq().declSpecifier().get(0);
+        boolean typeMutable = declSpecifier.typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier().theTypeName() != null;
+        CPP14Parser.PointerDeclaratorContext pd = ctx.declarator().pointerDeclarator();
+        String name = pd.noPointerDeclarator().getText();
+        boolean mutable = typeMutable || !pd.pointerOperator().isEmpty();
+        System.out.print("register local variable " + name);
+        System.out.println(mutable ? " (mutable)" : "");
+        variableHelper.registerLocalVariable(name, mutable);
+        parser.addEnter(CPPTokenType.C_VARDEF, ctx.getStart());
+    }
+
+    @Override
     public void enterSimpleTypeSpecifier(CPP14Parser.SimpleTypeSpecifierContext ctx) {
         if (hasIndirectParent(ctx, CPP14Parser.MemberdeclarationContext.class, CPP14Parser.FunctionDefinitionContext.class)) {
             parser.addEnter(CPPTokenType.C_VARDEF, ctx.getStart()); // member variable
         } else { // local variable
-            CPP14Parser.SimpleDeclarationContext parent = getIndirectParent(ctx, CPP14Parser.SimpleDeclarationContext.class, CPP14Parser.TemplateArgumentContext.class, CPP14Parser.FunctionDefinitionContext.class);
+            CPP14Parser.SimpleDeclarationContext parent = getIndirectParent(ctx, CPP14Parser.SimpleDeclarationContext.class,
+                    CPP14Parser.TemplateArgumentContext.class, CPP14Parser.FunctionDefinitionContext.class);
             if (parent != null) {
                 // part of a SimpleDeclaration without being part of
-                //  - a TemplateArgument (vector<HERE> v)
-                //  - a FunctionDefinition (return type, parameters)
-                //  first.
+                // - a TemplateArgument (vector<HERE> v)
+                // - a FunctionDefinition (return type, parameters)
+                // first.
                 if (parent.getText().contains("(")) { // TODO do not depend on text
                     // method calls like A::b()
                     parser.addEnter(CPPTokenType.C_APPLY, parent.getStart());
@@ -259,8 +273,8 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
                     // 'new <Type>' does not declare a new variable
                     boolean typeMutable = ctx.theTypeName() != null; // block is duplicate to member variable register
                     for (var decl : parent.initDeclaratorList().initDeclarator()) {
-                        String name = decl.declarator().getText();
                         CPP14Parser.PointerDeclaratorContext pd = decl.declarator().pointerDeclarator();
+                        String name = pd.noPointerDeclarator().getText();
                         boolean mutable = typeMutable || !pd.pointerOperator().isEmpty();
                         System.out.print("register local variable " + name);
                         System.out.println(mutable ? " (mutable)" : "");
