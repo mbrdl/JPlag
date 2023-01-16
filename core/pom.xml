@@ -44,6 +44,12 @@
         </dependency>
         <dependency>
             <groupId>de.jplag</groupId>
+            <artifactId>cpp2</artifactId>
+            <version>${revision}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>de.jplag</groupId>
             <artifactId>rlang</artifactId>
             <version>${revision}</version>
             <scope>test</scope>

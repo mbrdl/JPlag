@@ -1,5 +1,6 @@
 package de.jplag.cpp2;
 
+import de.jplag.semantics.VariableHelper;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import de.jplag.cpp2.grammar.CPP14Parser;
@@ -10,23 +11,43 @@ import java.util.Set;
 public class CPPTokenListener extends CPP14ParserBaseListener {
 
     private final Parser parser;
+    private final VariableHelper variableHelper;
 
     public CPPTokenListener(Parser parser) {
         this.parser = parser;
+        this.variableHelper = new VariableHelper();
     }
 
     @Override
     public void enterCompoundStatement(CPP14Parser.CompoundStatementContext ctx) {
+        variableHelper.enterLocalScope();
         parser.addEnter(CPPTokenType.C_BLOCK_BEGIN, ctx.getStart());
     }
 
     @Override
     public void exitCompoundStatement(CPP14Parser.CompoundStatementContext ctx) {
+        variableHelper.exitLocalScope();
         parser.addExit(CPPTokenType.C_BLOCK_END, ctx.getStop());
     }
 
     @Override
     public void enterClassSpecifier(CPP14Parser.ClassSpecifierContext ctx) {
+        for (CPP14Parser.MemberdeclarationContext member : ctx.memberSpecification().memberdeclaration()) {
+            if (member.memberDeclaratorList() != null) {
+                // I don't even know man
+                CPP14Parser.SimpleTypeSpecifierContext ugh = member.declSpecifierSeq().declSpecifier().get(0).typeSpecifier().trailingTypeSpecifier().simpleTypeSpecifier();
+                boolean typeMutable = ugh.theTypeName() != null;
+                for (var decl : member.memberDeclaratorList().memberDeclarator()) {
+                    // decl.declarator().noPointerDeclarator() may alternatively be used, todo
+                    CPP14Parser.PointerDeclaratorContext pd = decl.declarator().pointerDeclarator();
+                    boolean mutable = typeMutable || !pd.pointerOperator().isEmpty();
+                    String name = pd.noPointerDeclarator().getText();
+                    System.out.print("register member variable " + name);
+                    System.out.println(mutable ? " (mutable)" : "");
+                    variableHelper.registerMemberVariable(name, mutable);
+                }
+            }
+        }
         CPP14Parser.ClassKeyContext classKey = ctx.classHead().classKey();
         if (classKey.Class() != null) {
             parser.addEnter(CPPTokenType.C_CLASS_BEGIN, ctx.getStart());
@@ -43,6 +64,7 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
         } else if (classKey.Struct() != null) {
             parser.addExit(CPPTokenType.C_STRUCT_END, ctx.getStop());
         }
+        variableHelper.clearMemberVariables();
     }
 
     @Override
@@ -57,11 +79,13 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
 
     @Override
     public void enterFunctionDefinition(CPP14Parser.FunctionDefinitionContext ctx) {
+        variableHelper.enterLocalScope();
         parser.addEnter(CPPTokenType.C_FUNCTION_BEGIN, ctx.getStart());
     }
 
     @Override
     public void exitFunctionDefinition(CPP14Parser.FunctionDefinitionContext ctx) {
+        variableHelper.exitLocalScope();
         parser.addExit(CPPTokenType.C_FUNCTION_END, ctx.getStop());
     }
 
@@ -70,6 +94,7 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
         if (ctx.Do() != null) {
             parser.addEnter(CPPTokenType.C_DO_BEGIN, ctx.getStart());
         } else if (ctx.For() != null) {
+            variableHelper.enterLocalScope();
             parser.addEnter(CPPTokenType.C_FOR_BEGIN, ctx.getStart());
         } else if (ctx.While() != null) {
             parser.addEnter(CPPTokenType.C_WHILE_BEGIN, ctx.getStart());
@@ -81,6 +106,7 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
         if (ctx.Do() != null) {
             parser.addEnter(CPPTokenType.C_DO_END, ctx.getStop());
         } else if (ctx.For() != null) {
+            variableHelper.exitLocalScope();
             parser.addEnter(CPPTokenType.C_FOR_END, ctx.getStop());
         } else if (ctx.While() != null) {
             parser.addEnter(CPPTokenType.C_WHILE_END, ctx.getStop());
@@ -124,11 +150,13 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
 
     @Override
     public void enterHandler(CPP14Parser.HandlerContext ctx) {
+        variableHelper.enterLocalScope();
         parser.addEnter(CPPTokenType.C_CATCH_BEGIN, ctx.getStart());
     }
 
     @Override
     public void exitHandler(CPP14Parser.HandlerContext ctx) {
+        variableHelper.exitLocalScope();
         parser.addEnter(CPPTokenType.C_CATCH_END, ctx.getStop());
     }
 
@@ -197,32 +225,32 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
     }
 
     @Override
-    public void enterSimpleDeclaration(CPP14Parser.SimpleDeclarationContext ctx) {
-        super.enterSimpleDeclaration(ctx);
-    }
-
-    @Override
-    public void enterTypeSpecifier(CPP14Parser.TypeSpecifierContext ctx) {
-        super.enterTypeSpecifier(ctx);
-    }
-
-    @Override
     public void enterSimpleTypeSpecifier(CPP14Parser.SimpleTypeSpecifierContext ctx) {
         if (hasIndirectParent(ctx, CPP14Parser.MemberdeclarationContext.class, CPP14Parser.FunctionDefinitionContext.class)) {
-            parser.addEnter(CPPTokenType.C_VARDEF, ctx.getStart());
-        } else if (hasIndirectParent(ctx, CPP14Parser.SimpleDeclarationContext.class, CPP14Parser.TemplateArgumentContext.class, CPP14Parser.FunctionDefinitionContext.class)) {
-            // part of a SimpleDeclaration without being part of
-            //  - a TemplateArgument (vector<HERE> v)
-            //  - a FunctionDefinition (return type, parameters)
-            //  first.
-            CPP14Parser.SimpleDeclarationContext parent = getIndirectParent(ctx, CPP14Parser.SimpleDeclarationContext.class);
-            assert parent != null; // already checked by hasIndirectParent
-            if (parent.getText().contains("(")) { // TODO do not depend on text
-                // method calls like A::b()
-                parser.addEnter(CPPTokenType.C_APPLY, parent.getStart());
-            } else if (!hasIndirectParent(ctx, CPP14Parser.NewTypeIdContext.class)) {
-                // 'new <Type>' does not declare a new variable
-                parser.addEnter(CPPTokenType.C_VARDEF, ctx.getStart());
+            parser.addEnter(CPPTokenType.C_VARDEF, ctx.getStart()); // member variable
+        } else { // local variable
+            CPP14Parser.SimpleDeclarationContext parent = getIndirectParent(ctx, CPP14Parser.SimpleDeclarationContext.class, CPP14Parser.TemplateArgumentContext.class, CPP14Parser.FunctionDefinitionContext.class);
+            if (parent != null) {
+                // part of a SimpleDeclaration without being part of
+                //  - a TemplateArgument (vector<HERE> v)
+                //  - a FunctionDefinition (return type, parameters)
+                //  first.
+                if (parent.getText().contains("(")) { // TODO do not depend on text
+                    // method calls like A::b()
+                    parser.addEnter(CPPTokenType.C_APPLY, parent.getStart());
+                } else if (!hasIndirectParent(ctx, CPP14Parser.NewTypeIdContext.class)) {
+                    // 'new <Type>' does not declare a new variable
+                    boolean typeMutable = ctx.theTypeName() != null; // block is duplicate to member variable register
+                    for (var decl : parent.initDeclaratorList().initDeclarator()) {
+                        String name = decl.declarator().getText();
+                        CPP14Parser.PointerDeclaratorContext pd = decl.declarator().pointerDeclarator();
+                        boolean mutable = typeMutable || !pd.pointerOperator().isEmpty();
+                        System.out.print("register local variable " + name);
+                        System.out.println(mutable ? " (mutable)" : "");
+                        variableHelper.registerLocalVariable(name, mutable);
+                    }
+                    parser.addEnter(CPPTokenType.C_VARDEF, ctx.getStart());
+                }
             }
         }
     }
@@ -243,11 +271,6 @@ public class CPPTokenListener extends CPP14ParserBaseListener {
         } else if (ctx.PlusPlus() != null || ctx.MinusMinus() != null) {
             parser.addEnter(CPPTokenType.C_ASSIGN, ctx.getStart());
         }
-    }
-
-    @Override
-    public void enterEveryRule(ParserRuleContext ctx) {
-        super.enterEveryRule(ctx);
     }
 
     @SafeVarargs

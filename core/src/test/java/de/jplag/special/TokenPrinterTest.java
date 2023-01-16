@@ -33,6 +33,12 @@ class TokenPrinterTest extends TestBase {
 
     @Disabled("Not a meaningful test, used for designing the token set")
     @Test
+    void printCPP2Files() {
+        printSubmissions(options -> options.withLanguageOption(new de.jplag.cpp2.Language()).withMinimumTokenMatch(MIN_TOKEN_MATCH));
+    }
+
+    @Disabled("Not a meaningful test, used for designing the token set")
+    @Test
     void printJavaFiles() {
         printSubmissions(options -> options.withMinimumTokenMatch(MIN_TOKEN_MATCH));
     }
