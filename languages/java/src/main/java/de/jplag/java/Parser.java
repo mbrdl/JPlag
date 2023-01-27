@@ -22,7 +22,7 @@ public class Parser extends AbstractParser {
     public List<Token> parse(Set<File> files) throws ParsingException {
         tokens = new ArrayList<>();
         new JavacAdapter().parseFiles(files, this);
-        // printSemantics();
+        printSemantics();
         return tokens;
     }
 

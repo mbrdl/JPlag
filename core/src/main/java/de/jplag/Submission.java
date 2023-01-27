@@ -270,10 +270,10 @@ public class Submission implements Comparable<Submission> {
     }
 
     void normalize() {
-        // System.out.println();
-        // System.out.println("original:   " + getOrder(tokenList));
+        System.out.println();
+        System.out.println("original:   " + getOrder(tokenList));
         tokenList = new NormalizationGraph(tokenList).linearize();
-        // System.out.println("normalized: " + getOrder(tokenList));
+        System.out.println("normalized: " + getOrder(tokenList));
     }
 
     private List<Integer> getOrder(List<Token> tokenList) {
